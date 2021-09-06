@@ -1,125 +1,134 @@
-////////////////////////////////////////////////////////////
-// Service Worker:
-// This js file only runs the first time the site is loaded.
-// This file is used to register (i.e., install) a service worker.
-
-////////////////////////////////////////////////////
-// a list of static files needed to start the application
-// notice how the files are css, js and icons, any logos or parts of the UI
 const FILES_TO_CACHE = [
-    "/",
-    "/index.html",
-    "/assets/css/style.css",
-    "/manifest.webmanifest",
-    "/favicon.ico",
-    "/assets/images/icons/icon-192x192.png",
-    "/assets/images/icons/icon-512x512.png",
-  ];
-  
-  /////////////////////////////////////////////////
-  // Label the application caches
-  // you can have as many as you want. How many is correct? Think about strategies for
-  // cleaning caches: what would trigger your need to clean out caches?
-  //
-  // When you want to force a cache clean, change the name of your cache (notice the v2?)
-  
-  // This will cache static assets that are downloaded as part of running our application
-  // i.e., images we load as part of our gallery
-  const CACHE_NAME = "static-cache-v2";
-  
-  // this will cache responses the app recieves as a result of our api requests
-  const DATA_CACHE_NAME = "data-cache-v1";
-  
-  //////////////////////////////////////////////////
-  // Runs when the service worker is installed
-  self.addEventListener("install", function (evt) {
-    // this is an ExtendableEvent (https://developer.mozilla.org/en-US/docs/Web/API/ExtendableEvent)
-    evt.waitUntil(
-      // Open the file cache and add our essential static files
-      caches.open(CACHE_NAME).then((cache) => {
-        console.log("Your files were pre-cached successfully!");
-        return cache.addAll(FILES_TO_CACHE);
+  '/',
+  '/assets/css/style.css',
+  '/index.html',
+  '/favicon.ico',
+  '/dist/manifest.json',
+  '/dist/bundle.js',
+  '/dist/icon_72x72.png',
+  '/dist/icon_96x96.png',
+  '/dist/icon_128x128.png',
+  '/dist/icon_144x144.png',
+  '/dist/icon_152x152.png',
+  '/dist/icon_192x192.png',
+  '/dist/icon_384x384.png',
+  '/dist/icon_512x512.png',
+  '/assets/images/1.jpg',
+  '/assets/images/2.jpg',
+  '/assets/images/3.jpg',
+  '/assets/images/4.jpg',
+  '/assets/images/5.jpg',
+  '/assets/images/6.jpg',
+  '/assets/images/7.jpg',
+  '/assets/images/8.jpg',
+  '/assets/images/9.jpg',
+  '/assets/images/10.jpg',
+  '/assets/images/11.jpg',
+  '/assets/images/12.jpg',
+  '/assets/images/13.jpg',
+  '/assets/images/14.jpg',
+  '/assets/images/15.jpg',
+  '/assets/images/16.jpg',
+  '/assets/images/17.jpg',
+  '/assets/images/18.jpg',
+  '/assets/images/19.jpg',
+  '/assets/images/20.jpg',
+  '/assets/images/21.jpg',
+  '/assets/images/22.jpg',
+  '/assets/images/23.jpg',
+  '/assets/images/24.jpg',
+  '/assets/images/25.jpg',
+  '/assets/images/26.jpg',
+  '/assets/images/27.jpg',
+  '/assets/images/28.jpg',
+  '/assets/images/29.jpg',
+  '/assets/images/30.jpg',
+  '/assets/images/31.jpg',
+  '/assets/images/32.jpg',
+  '/assets/images/33.jpg',
+  '/assets/images/34.jpg',
+  '/assets/images/35.jpg',
+  '/assets/images/36.jpg',
+  '/assets/images/37.jpg',
+  '/assets/images/38.jpg'
+];
+
+const STATIC_CACHE = "static-cache-v1";
+const RUNTIME_CACHE = "runtime-cache";
+
+self.addEventListener("install", event => {
+  event.waitUntil(
+    caches
+      .open(STATIC_CACHE)
+      .then(cache => cache.addAll(FILES_TO_CACHE))
+      .then(() => self.skipWaiting())
+  );
+});
+
+// The activate handler takes care of cleaning up old caches.
+self.addEventListener("activate", event => {
+  const currentCaches = [STATIC_CACHE, RUNTIME_CACHE];
+  event.waitUntil(
+    caches
+      .keys()
+      .then(cacheNames => {
+        // return array of cache names that are old to delete
+        return cacheNames.filter(
+          cacheName => !currentCaches.includes(cacheName)
+        );
       })
-    );
-  
-    // A service worker installation has to wait until all open windows
-    // to your site are finished working. This line essentially bypasses
-    // that wait.
-    self.skipWaiting();
-  });
-  
-  // After installation, there is an activation event. The primary use of
-  // onactivate is for cleanup of resources used in previous versions of a
-  // Service worker script
-  self.addEventListener("activate", function (evt) {
-    evt.waitUntil(
-      // step through each of our caches. This may include old versions (see the cache names at
-      // the top of this file). So this function looks for caches not named above and removes them
-      caches.keys().then((keyList) => {
+      .then(cachesToDelete => {
         return Promise.all(
-          keyList.map((key) => {
-            if (key !== CACHE_NAME && key !== DATA_CACHE_NAME) {
-              console.log("Removing old cache data", key);
-              return caches.delete(key);
-            }
+          cachesToDelete.map(cacheToDelete => {
+            return caches.delete(cacheToDelete);
           })
         );
       })
-    );
-  
-    // when a page first loads, before the service worker is installed, the page itself is not
-    // considered under the control of the service worker and is not really subject to the
-    // benefits of having one. This line of code fixes that and makes sure the service worker
-    // is in control of the page
-    self.clients.claim();
-  });
-  
-  /////////////////////////////////////////////////////////////////////
-  // Handle fetch events
-  //
-  // Since the main point of having a service worker is to manage our
-  // access to resources from remote locations, this listens for any request
-  // made by our client application and decides whether to use a cached resource
-  // or go get it from the remote location
-  self.addEventListener("fetch", function (evt) {
-    // cache successful requests to the API
-    if (evt.request.url.includes("/api/")) {
-      // this is a FetchEvent (https://developer.mozilla.org/en-US/docs/Web/API/FetchEvent/respondWith)
-      evt.respondWith(
-        // Open the data cache
-        caches
-          .open(DATA_CACHE_NAME)
-          .then((cache) => {
-            // perform the remote api fetch...
-            return fetch(evt.request)
-              .then((response) => {
-                // If the response was good, clone it and store it in the cache.
-                if (response.status === 200) {
-                  // the cache is a key-value look up. The key is the request url, the value is the response
-                  // which should be a JSON object
-                  cache.put(evt.request.url, response.clone());
-                }
-  
-                // return the response back to our application
-                return response;
-              })
-              .catch((err) => {
-                // Network request failed, try to get it from the cache.
-                return cache.match(evt.request);
-              });
+      .then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener("fetch", event => {
+  // non GET requests are not cached and requests to other origins are not cached
+  if (
+    event.request.method !== "GET" ||
+    !event.request.url.startsWith(self.location.origin)
+  ) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
+  // handle runtime GET requests for data from /api routes
+  if (event.request.url.includes("/api/images")) {
+    // make network request and fallback to cache if network request fails (offline)
+    event.respondWith(
+      caches.open(RUNTIME_CACHE).then(cache => {
+        return fetch(event.request)
+          .then(response => {
+            cache.put(event.request, response.clone());
+            return response;
           })
-          .catch((err) => console.log(err))
-      );
-  
-      return;
-    }
-  
-    // if the request is not for the API, serve static assets using "offline-first" approach.
-    // see https://developers.google.com/web/fundamentals/instant-and-offline/offline-cookbook#cache-falling-back-to-network
-    evt.respondWith(
-      caches.match(evt.request).then(function (response) {
-        return response || fetch(evt.request);
+          .catch(() => caches.match(event.request));
       })
     );
-  });
-  
+    return;
+  }
+
+  // use cache first for all other requests for performance
+  event.respondWith(
+    caches.match(event.request).then(cachedResponse => {
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+
+      // request is not in cache. make network request and cache the response
+      return caches.open(RUNTIME_CACHE).then(cache => {
+        return fetch(event.request).then(response => {
+          return cache.put(event.request, response.clone()).then(() => {
+            return response;
+          });
+        });
+      });
+    })
+  );
+});
